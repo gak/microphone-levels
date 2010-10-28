@@ -1,6 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python -OO
 from __future__ import division
 
+import random
+import colorsys
 import os
 import pyaudio
 import wave
@@ -14,12 +16,11 @@ class Microphone(pyglet.window.Window):
 
     def __init__(self, *args, **kw):
         super(Microphone, self).__init__(*args, **kw)
-        self.num_samples = 256
+        self.num_samples = 512
         self.frames_per_buffer = self.num_samples
         self.format = pyaudio.paInt16
         self.channels = 1
         self.sampling_rate = 11025
-        self.sampling_rate = 11025 * 4
 
         self.p = pyaudio.PyAudio()
         self.stream = self.p.open(
@@ -29,11 +30,10 @@ class Microphone(pyglet.window.Window):
             input = True,
             frames_per_buffer=self.frames_per_buffer)
 
-        self.buffer = ''
         self.buffer_w, self.buffer_h = self.width - 1, self.height - 1
         self.buffer_size = self.buffer_w * self.buffer_h
         self.screen_buffer = (GLuint * self.buffer_size)(0)
-        pyglet.clock.schedule_interval(self.update, 0.01)
+        pyglet.clock.schedule_interval(self.update, 1 / 60)
 
     def read_fft(self):
         try:
@@ -52,7 +52,8 @@ class Microphone(pyglet.window.Window):
             data = self.read_fft()
         
         glDisable(GL_BLEND)
-        glRasterPos2i(1, 2)
+        glColor4f(1, 1, 1, 1)
+        glRasterPos2i(0, 2)
         glDrawPixels(self.buffer_w, self.buffer_h, GL_RGBA, GL_BYTE, 
             self.screen_buffer)
 
@@ -61,15 +62,29 @@ class Microphone(pyglet.window.Window):
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         
         graph = []
-        w = 5
+        colours = []
+        w = 4
         glLineWidth(w)
         for s, value in enumerate(data):
             graph.append(s * w + w / 2)
             graph.append(0)
             graph.append(s * w + w / 2)
-            graph.append(value * 100000 / self.num_samples)
+            # graph.append(1 + value * 10000 / self.num_samples)
+            graph.append(2)
+            v = float(value / 2)
+            if v < 0:
+                v = 0
+            if v > .2:
+                v = .2
+            hue = colorsys.hls_to_rgb(v, .5, .5)
+            colours += hue
+            colours.append(.3 + v)
+            colours += hue
+            colours.append(.3 + v)
         pyglet.graphics.draw(len(graph) // 2, pyglet.gl.GL_LINES,
-            ('v2f', graph))
+            ('v2f', graph),
+            ('c4f', colours),
+            )
         
         glReadPixels(0, 0, self.buffer_w, self.buffer_h, GL_RGBA, GL_BYTE, 
                 self.screen_buffer)
