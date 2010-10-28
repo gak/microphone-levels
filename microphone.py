@@ -6,53 +6,44 @@ import pyaudio
 import wave
 import sys
 import pyglet
+from numpy import *
+from numpy.fft import fft
 
 class Microphone(pyglet.window.Window):
 
     def __init__(self):
         super(Microphone, self).__init__()
-        self.label = pyglet.text.Label('Hello, world!')
-
-        self.chunk = 1024
-        FORMAT = pyaudio.paInt8
+        self.num_samples = 512
+        self.frames_per_buffer = self.num_samples
+        self.format = pyaudio.paInt16
         self.channels = 1
-        self.rate = 44100
+        self.sampling_rate = 11025
 
         self.p = pyaudio.PyAudio()
         self.stream = self.p.open(
-            format = FORMAT,
+            format = self.format,
             channels = self.channels,
-            rate = self.rate,
+            rate = self.sampling_rate,
             input = True,
-            frames_per_buffer=self.chunk)
+            frames_per_buffer=self.frames_per_buffer)
 
         self.buffer = ''
 
         pyglet.clock.schedule_interval(self.update, 0.001)
 
-    def next_sample(self):
-        while 1:
-            try:
-                data = self.stream.read(self.chunk)
-            except IOError:
-                continue
-            self.buffer += data
-            if len(self.buffer) <= self.rate:
-                datachunk = self.buffer[:self.rate]
-                self.buffer = self.buffer[self.rate:]
-                numbers = [ord(a) for a in datachunk]
-                vol = sum(numbers)
-                print '%10i %.2f' % (vol, vol / (self.rate)),
-                print '-' * int(vol / self.rate * 10)
-                return numbers, vol
+    def read_fft(self):
+        audio_data = fromstring(self.stream.read(self.num_samples),
+            dtype=short)
+        normalized_data = audio_data / 32768.0
+        return fft(normalized_data)[1:1 + self.num_samples // 2]
 
     def update(self, m):
         self.clear()
-        data, vol = self.next_sample()
-        self.label.text = str(vol)
-        self.label.draw()
-        pyglet.graphics.draw(int(len(data) / 2), pyglet.gl.GL_LINE_LOOP,
-            ('v2i', data)
+        data = self.read_fft()
+        data *= 100
+        data += self.width / 2
+        pyglet.graphics.draw(len(data) // 2, pyglet.gl.GL_LINE_LOOP,
+            ('v2f', data)
         )
 
 if __name__ == '__main__':
