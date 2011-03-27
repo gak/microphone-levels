@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+from __future__ import division
+
+import random
+import os
+import pyaudio
+import wave
+import sys
+from numpy import *
+from numpy.fft import fft
+
+class Microphone:
+
+    def __init__(self, *args, **kw):
+        super(Microphone, self).__init__(*args, **kw)
+        self.num_samples = 512
+        self.frames_per_buffer = self.num_samples
+        self.format = pyaudio.paInt16
+        self.channels = 1
+        self.sampling_rate = 11025
+
+        self.p = pyaudio.PyAudio()
+        self.stream = self.p.open(
+            format = self.format,
+            channels = self.channels,
+            rate = self.sampling_rate,
+            input = True,
+            frames_per_buffer=self.frames_per_buffer)
+
+        audio_data = fromstring(self.stream.read(self.num_samples),
+            dtype=short)
+
+        normalized_data = audio_data / 32768.0
+        return fft(normalized_data)[1:1 + self.num_samples // 2]
+
+    def volume(self, m):
+
+        data = None
+        while data is None:
+            data = self.read_fft()
+
+        print len(data)
+
+if __name__ == '__main__':
+    m = Microphone()
+    m.volume()
+
